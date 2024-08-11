@@ -1,0 +1,109 @@
+# Load the API
+source packet_count_api.sh
+
+#
+#  Test to see if the correct RTL is loaded
+#
+if [ $(confirm_rtl) -eq 0 ]; then
+    echo "It doesn't look like the correct RTL is loaded" 1>&2
+    exit
+fi
+
+# Determine which packet sizes we want to count
+set_range 0 $((4096 + 64))
+set_range 1 $(( 128 + 64))
+set_range 2 $((   4 + 64))
+set_range 3 0
+set_range 4 0
+set_range 5 0
+set_range 6 0
+set_range 7 0
+
+#==============================================================================
+# $1 which channel, 0 or 1
+#==============================================================================
+show()
+{
+    local channel=$1
+
+    # Ensure we have a valid channel number
+    if [ "$channel" != "0" ] && [ "$channel" != "1" ]; then
+        echo "Illegal channel [$channel] on set_range()" 1>&2
+        return
+    fi
+
+    printf "\n"
+    printf "QSFP #%u Packet Counts\n" $channel
+    printf "========================================\n"
+    printf "  Total Good : %u\n" $(good_packets    $channel)
+    printf "   Total Bad : %u\n" $(bad_packets     $channel)
+    printf "  Frame Data : %u\n" $(range_packets   $channel 0)
+    printf "   Meta Data : %u\n" $(range_packets   $channel 1)
+    printf "  Frame Cntr : %u\n" $(range_packets   $channel 2)       
+    printf "Unclassified : %u\n" $(unclass_packets $channel)    
+    printf "\n"
+
+}
+#==============================================================================
+
+
+#==============================================================================
+# Waits for data to arrive, then waits for data flow to halt, then displays
+# the counters for both channels
+#==============================================================================
+wait_for_packets()
+{
+    local total_packets
+    local prior_total
+    local silent_seconds=0;
+
+    # Clear the packet counters
+    clear_counters
+
+    # Wait for data to start flowing in
+    echo "Waiting for packets..."
+    while [ 1 -eq 1 ]; do
+        total_packets=$(( $(good_packets 0) + $(good_packets 1) ))
+        prior_total=$total_packets
+        test $total_packets -ne 0 && break
+    done
+    echo "Counting packets..."
+
+    # Wait for data to stop flowing in
+    while [ 1 -eq 1 ]; do
+        sleep 1
+        total_packets=$(( $(good_packets 0) + $(good_packets 1) ))
+
+        if [ $total_packets -eq $prior_total ]; then
+            silent_seconds=$((silent_seconds + 1))
+            test $silent_seconds -eq 3 && break
+        else
+            prior_total=$total_packets
+            silent_seconds=0
+        fi
+    done
+
+    # When we get here, data has stopped flowing: display the counters
+    show 0
+    show 1
+}
+#==============================================================================
+
+
+
+# Determine what the user wants to do
+if [ "$1" == "show" ]; then
+    show 0
+    show 1
+
+elif [ "$1" == "wait" ]; then
+    wait_for_packets
+
+elif [ "$1" == "" ]; then
+    clear_counters
+
+else 
+    echo "Unknown parameter [$1]" 1>&2
+fi
+
+
