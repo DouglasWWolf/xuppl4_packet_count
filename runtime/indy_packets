@@ -93,13 +93,16 @@ wait_for_packets()
 
 # Determine what the user wants to do
 if [ "$1" == "show" ]; then
+    test $(confirm_pcs_status) -ne 1 && exit 1    
     show 0
     show 1
 
 elif [ "$1" == "wait" ]; then
+    test $(confirm_pcs_status) -ne 1 && exit 1
     wait_for_packets
 
 elif [ "$1" == "" ]; then
+    test $(confirm_pcs_status) -ne 1 && exit 1
     clear_counters
 
 else 

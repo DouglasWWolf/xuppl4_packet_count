@@ -5,14 +5,15 @@
 # 10-Aug-24  1.0.0  DWW  Initial Creation
 #==============================================================================
 BC_EMU_API_VERSION=1.0.0
-VALID_RTL_TYPE=1082024
+VALID_RTL_TYPE=8102024
 
 # "pcireg" relies on this being set appropriately
 pcireg_device=10ee:903f
 
-BASE_ADDR0=0x1000
-BASE_ADDR1=0x2000
-
+    BASE_ADDR0=0x1000
+    BASE_ADDR1=0x2000
+REG_ETH_STATUS=0x3000
+ 
  REG_CLEAR_COUNTERS=$((0x00 * 4))
    REG_GOOD_PACKETS=$((0x10 * 4))
     REG_BAD_PACKETS=$((0x12 * 4))
@@ -42,6 +43,25 @@ confirm_rtl()
     test $rtl_type -eq $VALID_RTL_TYPE && echo "1" || echo "0"
 }
 #==============================================================================
+
+
+#==============================================================================
+# Displays a 1 or 0 to indicate whether PCS alignment has been achieved
+#==============================================================================
+confirm_pcs_status()
+{
+    # Fetch the PCS-alignment status bits
+    local status=$(pcireg -dec $REG_ETH_STATUS)
+
+    # Display errors if it looks like the cables aren't connected
+    test $((status & 1)) -eq 0 && echo "QSFP_0 isn't connected" 1>&2
+    test $((status & 2)) -eq 0 && echo "QSFP_1 isn't connected" 1>&2
+
+    # Display 1 or 0 to indicate both cables are plugged in (or not)
+    test $status -eq 3 && echo "1" || echo "0"    
+}
+#==============================================================================
+
 
 #==============================================================================
 # $1 which range index, 0 thru 7
